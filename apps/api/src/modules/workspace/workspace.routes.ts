@@ -3,7 +3,7 @@ import { z } from 'zod'
 import { eq, and } from 'drizzle-orm'
 import { db, workspaces, workspaceMembers, users, invitations } from '../../db/index.js'
 import { requireMinRole } from '../auth/rbac.js'
-import { randomBytes } from 'crypto'
+import { randomBytes } from 'node:crypto'
 
 const updateWorkspaceSchema = z.object({
   name: z.string().min(1).optional(),
@@ -94,7 +94,9 @@ export async function workspaceRoutes(app: FastifyInstance) {
     if (!inv) return reply.code(404).send({ error: 'Invitation not found' })
     if (inv.acceptedAt) return reply.code(409).send({ error: 'Already accepted' })
     if (inv.expiresAt < new Date()) return reply.code(410).send({ error: 'Invitation expired' })
-    if (inv.email !== req.user.email) return reply.code(403).send({ error: 'Email mismatch' })
+
+    const user = await db.query.users.findFirst({ where: eq(users.id, req.user.sub) })
+    if (!user || inv.email !== user.email) return reply.code(403).send({ error: 'Email mismatch' })
 
     await db.insert(workspaceMembers).values({
       userId: req.user.sub,

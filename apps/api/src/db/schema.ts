@@ -10,9 +10,8 @@ import {
   pgEnum,
   uniqueIndex,
   index,
-  check,
 } from 'drizzle-orm/pg-core'
-import { sql } from 'drizzle-orm'
+import { sql, relations } from 'drizzle-orm'
 
 // ─── Enums ────────────────────────────────────────────────────────────────────
 
@@ -379,4 +378,112 @@ export const refreshTokens = pgTable('refresh_tokens', {
   createdAt: timestamp('created_at').notNull().defaultNow(),
 }, (t) => ({
   tokenIdx: uniqueIndex('refresh_tokens_token_idx').on(t.token),
+}))
+
+// ─── Relations ────────────────────────────────────────────────────────────────
+
+export const usersRelations = relations(users, ({ many }) => ({
+  workspaceMembers: many(workspaceMembers),
+  refreshTokens: many(refreshTokens),
+}))
+
+export const workspacesRelations = relations(workspaces, ({ many }) => ({
+  members: many(workspaceMembers),
+  accounts: many(accounts),
+  contacts: many(contacts),
+  sequences: many(sequences),
+  meetings: many(meetings),
+  icpConfigs: many(icpConfigs),
+  emailAccounts: many(emailAccounts),
+  crmConnections: many(crmConnections),
+  activityLogs: many(activityLogs),
+}))
+
+export const workspaceMembersRelations = relations(workspaceMembers, ({ one }) => ({
+  user: one(users, { fields: [workspaceMembers.userId], references: [users.id] }),
+  workspace: one(workspaces, { fields: [workspaceMembers.workspaceId], references: [workspaces.id] }),
+}))
+
+export const accountsRelations = relations(accounts, ({ one, many }) => ({
+  workspace: one(workspaces, { fields: [accounts.workspaceId], references: [workspaces.id] }),
+  owner: one(users, { fields: [accounts.ownerId], references: [users.id] }),
+  contacts: many(contacts),
+  meetings: many(meetings),
+}))
+
+export const contactsRelations = relations(contacts, ({ one, many }) => ({
+  account: one(accounts, { fields: [contacts.accountId], references: [accounts.id] }),
+  workspace: one(workspaces, { fields: [contacts.workspaceId], references: [workspaces.id] }),
+  owner: one(users, { fields: [contacts.ownerId], references: [users.id] }),
+  enrollments: many(sequenceEnrollments),
+  messages: many(messages),
+  replies: many(replies),
+  meetings: many(meetings),
+}))
+
+export const icpConfigsRelations = relations(icpConfigs, ({ one }) => ({
+  workspace: one(workspaces, { fields: [icpConfigs.workspaceId], references: [workspaces.id] }),
+}))
+
+export const emailAccountsRelations = relations(emailAccounts, ({ one }) => ({
+  workspace: one(workspaces, { fields: [emailAccounts.workspaceId], references: [workspaces.id] }),
+  user: one(users, { fields: [emailAccounts.userId], references: [users.id] }),
+}))
+
+export const sequencesRelations = relations(sequences, ({ one, many }) => ({
+  workspace: one(workspaces, { fields: [sequences.workspaceId], references: [workspaces.id] }),
+  createdByUser: one(users, { fields: [sequences.createdBy], references: [users.id] }),
+  icpConfig: one(icpConfigs, { fields: [sequences.icpConfigId], references: [icpConfigs.id] }),
+  steps: many(sequenceSteps),
+  enrollments: many(sequenceEnrollments),
+}))
+
+export const sequenceStepsRelations = relations(sequenceSteps, ({ one, many }) => ({
+  sequence: one(sequences, { fields: [sequenceSteps.sequenceId], references: [sequences.id] }),
+  messages: many(messages),
+}))
+
+export const sequenceEnrollmentsRelations = relations(sequenceEnrollments, ({ one, many }) => ({
+  sequence: one(sequences, { fields: [sequenceEnrollments.sequenceId], references: [sequences.id] }),
+  contact: one(contacts, { fields: [sequenceEnrollments.contactId], references: [contacts.id] }),
+  enrolledByUser: one(users, { fields: [sequenceEnrollments.enrolledBy], references: [users.id] }),
+  messages: many(messages),
+  replies: many(replies),
+}))
+
+export const messagesRelations = relations(messages, ({ one, many }) => ({
+  contact: one(contacts, { fields: [messages.contactId], references: [contacts.id] }),
+  enrollment: one(sequenceEnrollments, { fields: [messages.enrollmentId], references: [sequenceEnrollments.id] }),
+  sequenceStep: one(sequenceSteps, { fields: [messages.sequenceStepId], references: [sequenceSteps.id] }),
+  emailAccount: one(emailAccounts, { fields: [messages.emailAccountId], references: [emailAccounts.id] }),
+  approvedByUser: one(users, { fields: [messages.approvedBy], references: [users.id] }),
+  replies: many(replies),
+}))
+
+export const repliesRelations = relations(replies, ({ one }) => ({
+  message: one(messages, { fields: [replies.messageId], references: [messages.id] }),
+  contact: one(contacts, { fields: [replies.contactId], references: [contacts.id] }),
+  enrollment: one(sequenceEnrollments, { fields: [replies.enrollmentId], references: [sequenceEnrollments.id] }),
+  humanReviewedByUser: one(users, { fields: [replies.humanReviewedBy], references: [users.id] }),
+}))
+
+export const meetingsRelations = relations(meetings, ({ one }) => ({
+  workspace: one(workspaces, { fields: [meetings.workspaceId], references: [workspaces.id] }),
+  account: one(accounts, { fields: [meetings.accountId], references: [accounts.id] }),
+  contact: one(contacts, { fields: [meetings.contactId], references: [contacts.id] }),
+  owner: one(users, { fields: [meetings.ownerId], references: [users.id] }),
+  enrollment: one(sequenceEnrollments, { fields: [meetings.enrollmentId], references: [sequenceEnrollments.id] }),
+}))
+
+export const crmConnectionsRelations = relations(crmConnections, ({ one }) => ({
+  workspace: one(workspaces, { fields: [crmConnections.workspaceId], references: [workspaces.id] }),
+}))
+
+export const activityLogsRelations = relations(activityLogs, ({ one }) => ({
+  workspace: one(workspaces, { fields: [activityLogs.workspaceId], references: [workspaces.id] }),
+  actor: one(users, { fields: [activityLogs.actorId], references: [users.id] }),
+}))
+
+export const refreshTokensRelations = relations(refreshTokens, ({ one }) => ({
+  user: one(users, { fields: [refreshTokens.userId], references: [users.id] }),
 }))

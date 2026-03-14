@@ -38,9 +38,22 @@ export const notificationWorker = new Worker(
 export const crmSyncWorker = new Worker(
   'crm-sync',
   async (job) => {
-    const { workspaceId, objectType, objectId, action } = job.data
-    console.log(`[crm-sync] ${action} ${objectType}:${objectId} workspace=${workspaceId}`)
-    // TODO: call CRM sync service
+    const { workspaceId, objectType, objectId, action } = job.data as {
+      workspaceId: string
+      objectType: 'contact' | 'account' | 'meeting' | 'activity'
+      objectId: string
+      action: 'upsert' | 'delete'
+    }
+
+    if (action === 'delete') return // not implemented for CRM
+
+    if (objectType === 'contact') {
+      const { syncContact } = await import('../modules/crm/crm.service.js')
+      await syncContact(objectId, workspaceId)
+    } else if (objectType === 'meeting') {
+      const { syncMeetingActivity } = await import('../modules/crm/crm.service.js')
+      await syncMeetingActivity(objectId, workspaceId)
+    }
   },
   { connection: redisConnection, concurrency: 3 },
 )
