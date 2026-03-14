@@ -1,0 +1,26 @@
+[build]
+builder = "DOCKERFILE"
+
+# ─── API service ───────────────────────────────────────────────────────────────
+# In Railway dashboard: add service → point to apps/api/Dockerfile
+#
+# Required env vars (API service):
+#   DATABASE_URL          (Railway PostgreSQL plugin — auto-injected)
+#   REDIS_URL             (Railway Redis plugin — auto-injected)
+#   JWT_SECRET
+#   JWT_REFRESH_SECRET
+#   API_PUBLIC_URL        https://your-api.up.railway.app
+#   ANTHROPIC_API_KEY     get from console.anthropic.com
+#   EMAIL_ENABLED         true
+#   RESEND_API_KEY        get from resend.com
+#   EMAIL_FROM            noreply@yourdomain.com
+#   CORS_ORIGIN           https://your-app.up.railway.app
+#   HUBSPOT_CLIENT_ID     (optional)
+#   HUBSPOT_CLIENT_SECRET (optional)
+
+# ─── Web service ───────────────────────────────────────────────────────────────
+# In Railway dashboard: add separate service → point to apps/web/Dockerfile
+#
+# Required env vars (Web service):
+#   NEXT_PUBLIC_API_URL   https://your-api.up.railway.app/api/v1
+#   NEXT_PUBLIC_APP_URL   https://your-app.up.railway.app
