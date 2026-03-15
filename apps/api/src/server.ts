@@ -14,6 +14,7 @@ import { messagesRoutes } from './modules/messages/messages.routes.js'
 import { meetingsRoutes } from './modules/meetings/meetings.routes.js'
 import { analyticsRoutes } from './modules/analytics/analytics.routes.js'
 import { crmRoutes } from './modules/crm/crm.routes.js'
+import { webhookRoutes } from './modules/webhooks/webhook.routes.js'
 import { startWorkers } from './queues/worker.js'
 
 const app = Fastify({ logger: { level: env.NODE_ENV === 'production' ? 'warn' : 'info' } })
@@ -57,6 +58,7 @@ await app.register(messagesRoutes, { prefix: `${V1}/messages` })
 await app.register(meetingsRoutes, { prefix: `${V1}/meetings` })
 await app.register(analyticsRoutes, { prefix: `${V1}/analytics` })
 await app.register(crmRoutes, { prefix: `${V1}/crm` })
+await app.register(webhookRoutes, { prefix: `${V1}/webhooks` })
 
 // ─── Health ───────────────────────────────────────────────────────────────────
 
