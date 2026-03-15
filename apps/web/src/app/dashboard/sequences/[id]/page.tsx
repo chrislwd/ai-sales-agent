@@ -19,7 +19,7 @@ export default function SequenceDetailPage() {
   )
   const seq = data?.data
 
-  const { data: enrollmentsData } = useSWR(
+  const { data: enrollmentsData } = useSWR<{ data: any[] }>(
     enrollTab ? `/sequences/${id}/enrollments` : null,
     fetcher,
   )
@@ -102,6 +102,7 @@ export default function SequenceDetailPage() {
         <SequenceEditor
           initial={{
             ...seq,
+            description: seq.description ?? undefined,
             steps: seq.steps?.map((s: any) => ({ ...s, id: s.id ?? crypto.randomUUID() })) ?? [],
           }}
           onSave={handleSave}

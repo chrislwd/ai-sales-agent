@@ -30,7 +30,7 @@ export async function sendEmail(params: SendEmailParams): Promise<SendResult> {
       to: params.toName ? `${params.toName} <${params.to}>` : params.to,
       subject: params.subject,
       html: params.body.includes('<') ? params.body : `<pre style="font-family:sans-serif">${params.body}</pre>`,
-      replyTo: params.replyTo,
+      reply_to: params.replyTo,
     })
 
     if (error) return { success: false, error: error.message }

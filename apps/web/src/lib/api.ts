@@ -60,4 +60,4 @@ async function tryRefresh(): Promise<boolean> {
 }
 
 // SWR fetcher
-export const fetcher = (path: string) => apiFetch(path)
+export const fetcher = <T = unknown>(path: string): Promise<T> => apiFetch<T>(path)

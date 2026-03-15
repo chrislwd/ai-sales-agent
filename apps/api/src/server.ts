@@ -83,16 +83,25 @@ if (env.NODE_ENV !== 'test') {
 
 // ─── TypeScript augmentation ──────────────────────────────────────────────────
 
-declare module 'fastify' {
-  interface FastifyInstance {
-    authenticate: (req: FastifyRequest, reply: FastifyReply) => Promise<void>
-  }
-  interface FastifyRequest {
+declare module '@fastify/jwt' {
+  interface FastifyJWT {
+    payload: {
+      sub: string
+      workspaceId: string
+      role: string
+      email?: string
+    }
     user: {
       sub: string
       workspaceId: string
       role: string
       email?: string
     }
+  }
+}
+
+declare module 'fastify' {
+  interface FastifyInstance {
+    authenticate: (req: FastifyRequest, reply: FastifyReply) => Promise<void>
   }
 }

@@ -57,7 +57,7 @@ export async function crmRoutes(app: FastifyInstance) {
       // Get portal info to identify workspace (simplified: use first workspace from token)
       // In production: encode workspaceId in OAuth state parameter
       const portalRes = await fetch('https://api.hubapi.com/oauth/v1/access-tokens/' + tokens.access_token)
-      const portalInfo = portalRes.ok ? await portalRes.json() : {}
+      const portalInfo = portalRes.ok ? await portalRes.json() as Record<string, unknown> : {} as Record<string, unknown>
 
       return reply.redirect(
         `${env.CORS_ORIGIN}/dashboard/settings?crm=connected&portal=${portalInfo.hub_id ?? 'unknown'}`,

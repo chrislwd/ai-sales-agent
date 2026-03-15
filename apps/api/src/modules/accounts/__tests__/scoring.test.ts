@@ -59,7 +59,7 @@ describe('Account Scoring', () => {
 
   it('returns 0 score when no ICP configured', async () => {
     vi.mocked(db.query.accounts.findFirst).mockResolvedValue(mockAccount as any)
-    vi.mocked(db.query.icpConfigs.findFirst).mockResolvedValue(null)
+    vi.mocked(db.query.icpConfigs.findFirst).mockResolvedValue(undefined)
 
     const { score } = await scoreAccount('acc-1', 'ws-1')
     expect(score).toBe(0)
@@ -111,7 +111,7 @@ describe('Account Scoring', () => {
   })
 
   it('throws when account not found', async () => {
-    vi.mocked(db.query.accounts.findFirst).mockResolvedValue(null)
+    vi.mocked(db.query.accounts.findFirst).mockResolvedValue(undefined)
     await expect(scoreAccount('bad-id', 'ws-1')).rejects.toThrow('Account not found')
   })
 })

@@ -35,7 +35,7 @@ export async function accountsRoutes(app: FastifyInstance) {
         )
       : eq(accounts.workspaceId, req.user.workspaceId)
 
-    const [rows, [{ total }]] = await Promise.all([
+    const [rows, [countRow]] = await Promise.all([
       db.query.accounts.findMany({
         where,
         orderBy: desc(accounts.score),
@@ -45,7 +45,7 @@ export async function accountsRoutes(app: FastifyInstance) {
       db.select({ total: count() }).from(accounts).where(where),
     ])
 
-    return { data: rows, total: Number(total), page: parseInt(page), pageSize: parseInt(pageSize) }
+    return { data: rows, total: Number(countRow?.total ?? 0), page: parseInt(page), pageSize: parseInt(pageSize) }
   })
 
   // GET /accounts/:id

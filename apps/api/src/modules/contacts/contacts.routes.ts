@@ -39,7 +39,7 @@ export async function contactsRoutes(app: FastifyInstance) {
 
     const where = and(...conditions)
 
-    const [rows, [{ total }]] = await Promise.all([
+    const [rows, [countRow]] = await Promise.all([
       db.query.contacts.findMany({
         where,
         orderBy: desc(contacts.score),
@@ -49,7 +49,7 @@ export async function contactsRoutes(app: FastifyInstance) {
       db.select({ total: count() }).from(contacts).where(where),
     ])
 
-    return { data: rows, total: Number(total), page: parseInt(page), pageSize: parseInt(pageSize) }
+    return { data: rows, total: Number(countRow?.total ?? 0), page: parseInt(page), pageSize: parseInt(pageSize) }
   })
 
   // GET /contacts/:id

@@ -11,12 +11,12 @@ export async function analyticsRoutes(app: FastifyInstance) {
     const wsId = req.user.workspaceId
 
     const [
-      [{ sentCount }],
-      [{ openedCount }],
-      [{ repliedCount }],
-      [{ meetingCount }],
-      [{ accountCount }],
-      [{ contactCount }],
+      [sentRow],
+      [openedRow],
+      [repliedRow],
+      [meetingRow],
+      [accountRow],
+      [contactRow],
     ] = await Promise.all([
       db.select({ sentCount: count() }).from(messages)
         .where(and(
@@ -49,15 +49,15 @@ export async function analyticsRoutes(app: FastifyInstance) {
       db.select({ contactCount: count() }).from(contacts).where(eq(contacts.workspaceId, wsId)),
     ])
 
-    const sent = Number(sentCount)
-    const opened = Number(openedCount)
-    const replied = Number(repliedCount)
-    const booked = Number(meetingCount)
+    const sent = Number(sentRow?.sentCount ?? 0)
+    const opened = Number(openedRow?.openedCount ?? 0)
+    const replied = Number(repliedRow?.repliedCount ?? 0)
+    const booked = Number(meetingRow?.meetingCount ?? 0)
 
     return {
       data: {
-        accountsCovered: Number(accountCount),
-        contactsTouched: Number(contactCount),
+        accountsCovered: Number(accountRow?.accountCount ?? 0),
+        contactsTouched: Number(contactRow?.contactCount ?? 0),
         emailsSent: sent,
         openRate: sent > 0 ? Math.round((opened / sent) * 100) / 100 : 0,
         replyRate: sent > 0 ? Math.round((replied / sent) * 100) / 100 : 0,

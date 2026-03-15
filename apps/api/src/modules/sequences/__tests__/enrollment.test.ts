@@ -66,7 +66,7 @@ describe('Sequence Enrollment', () => {
 
   it('creates enrollment for valid contact', async () => {
     vi.mocked(db.query.contacts.findFirst).mockResolvedValue(mockContact as any)
-    vi.mocked(db.query.sequenceEnrollments.findFirst).mockResolvedValue(null) // not enrolled
+    vi.mocked(db.query.sequenceEnrollments.findFirst).mockResolvedValue(undefined) // not enrolled
 
     await enrollContact('seq-1', 'cnt-1', 'user-1')
 
@@ -94,7 +94,7 @@ describe('Sequence Enrollment', () => {
   })
 
   it('throws when contact not found', async () => {
-    vi.mocked(db.query.contacts.findFirst).mockResolvedValue(null)
+    vi.mocked(db.query.contacts.findFirst).mockResolvedValue(undefined)
     await expect(enrollContact('seq-1', 'bad-id')).rejects.toThrow('Contact not found')
   })
 
@@ -108,7 +108,7 @@ describe('Sequence Enrollment', () => {
 
   it('schedules first step immediately', async () => {
     vi.mocked(db.query.contacts.findFirst).mockResolvedValue(mockContact as any)
-    vi.mocked(db.query.sequenceEnrollments.findFirst).mockResolvedValue(null)
+    vi.mocked(db.query.sequenceEnrollments.findFirst).mockResolvedValue(undefined)
 
     await enrollContact('seq-1', 'cnt-1')
 

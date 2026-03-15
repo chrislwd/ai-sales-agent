@@ -1,8 +1,8 @@
-import { Queue, Worker, type Job } from 'bullmq'
-import IORedis from 'ioredis'
+import { Queue, Worker, type Job, type ConnectionOptions } from 'bullmq'
+import { Redis } from 'ioredis'
 import { env } from '../config/env.js'
 
-const connection = new IORedis(env.REDIS_URL, { maxRetriesPerRequest: null })
+const connection = new Redis(env.REDIS_URL, { maxRetriesPerRequest: null }) as unknown as ConnectionOptions
 
 // ─── Queues ───────────────────────────────────────────────────────────────────
 

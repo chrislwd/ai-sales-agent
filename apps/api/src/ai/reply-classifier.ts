@@ -84,7 +84,7 @@ function mockClassify(body: string): ClassifyReplyResult {
   if (lower.includes('unsubscribe') || lower.includes('remove me') || lower.includes('stop emailing')) {
     return { intent: 'unsubscribe', confidence: 0.98, requiresHumanReview: false, suggestedAction: INTENT_ACTIONS['unsubscribe']! }
   }
-  if (lower.includes('out of office') || lower.includes('on vacation') || lower.includes('auto-reply')) {
+  if (lower.includes('out of office') || lower.includes('out of the office') || lower.includes('on vacation') || lower.includes('auto-reply') || lower.includes('ooo')) {
     return { intent: 'out_of_office', confidence: 0.95, requiresHumanReview: false, suggestedAction: INTENT_ACTIONS['out_of_office']! }
   }
   if (lower.includes('demo') || lower.includes('call') || lower.includes('meeting')) {

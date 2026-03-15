@@ -51,11 +51,11 @@ export class HubSpotClient {
     })
 
     if (!res.ok) {
-      const err = await res.json().catch(() => ({ message: res.statusText }))
+      const err = await res.json().catch(() => ({ message: res.statusText })) as { message?: string }
       throw new Error(`HubSpot ${method} ${path}: ${err.message ?? res.statusText}`)
     }
 
-    return method === 'DELETE' ? (null as T) : res.json()
+    return method === 'DELETE' ? (null as T) : res.json() as Promise<T>
   }
 
   // ─── Contacts ───────────────────────────────────────────────────────────────
@@ -159,7 +159,7 @@ export class HubSpotClient {
       }),
     })
     if (!res.ok) throw new Error('HubSpot token exchange failed')
-    return res.json()
+    return res.json() as Promise<{ access_token: string; refresh_token: string; expires_in: number }>
   }
 
   static async refreshToken(refreshToken: string): Promise<{
@@ -178,6 +178,6 @@ export class HubSpotClient {
       }),
     })
     if (!res.ok) throw new Error('HubSpot token refresh failed')
-    return res.json()
+    return res.json() as Promise<{ access_token: string; refresh_token: string; expires_in: number }>
   }
 }
