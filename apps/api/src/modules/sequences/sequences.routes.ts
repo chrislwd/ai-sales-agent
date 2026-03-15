@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify'
 import { z } from 'zod'
-import { eq, and, desc } from 'drizzle-orm'
-import { db, sequences, sequenceSteps, sequenceEnrollments, contacts } from '../../db/index.js'
+import { eq, and, desc, sql, count } from 'drizzle-orm'
+import { db, sequences, sequenceSteps, sequenceEnrollments, contacts, messages, replies, meetings } from '../../db/index.js'
 import { requireMinRole } from '../auth/rbac.js'
 import { enrollContact, pauseEnrollment, resumeEnrollment } from './sequences.service.js'
 
@@ -16,6 +16,8 @@ const stepSchema = z.object({
   templateSubject: z.string().optional(),
   templateBody: z.string().optional(),
   approvalMode: z.enum(['auto', 'first_only', 'all']).default('auto'),
+  variantGroup: z.string().nullable().optional(),
+  variantLabel: z.string().nullable().optional(),
 })
 
 const sequenceSchema = z.object({
@@ -166,6 +168,211 @@ export async function sequencesRoutes(app: FastifyInstance) {
     const { enrollmentId } = req.params as { enrollmentId: string }
     await resumeEnrollment(enrollmentId)
     return { data: { ok: true } }
+  })
+
+  // GET /sequences/:id/analytics — funnel metrics for a sequence
+  app.get('/:id/analytics', auth, async (req, reply) => {
+    const { id } = req.params as { id: string }
+
+    // Verify the sequence belongs to this workspace
+    const seq = await db.query.sequences.findFirst({
+      where: and(eq(sequences.id, id), eq(sequences.workspaceId, req.user.workspaceId)),
+      with: { steps: { orderBy: (s, { asc }) => [asc(s.position)] } },
+    })
+    if (!seq) return reply.code(404).send({ error: 'Not found' })
+
+    // Enrollment status counts
+    const enrollmentRows = await db
+      .select({
+        status: sequenceEnrollments.status,
+        cnt: count(),
+      })
+      .from(sequenceEnrollments)
+      .where(eq(sequenceEnrollments.sequenceId, id))
+      .groupBy(sequenceEnrollments.status)
+
+    const statusCounts: Record<string, number> = {}
+    for (const r of enrollmentRows) {
+      statusCounts[r.status] = Number(r.cnt)
+    }
+
+    const totalEnrolled = Object.values(statusCounts).reduce((a, b) => a + b, 0)
+    const active = statusCounts['active'] ?? 0
+    const completed = statusCounts['completed'] ?? 0
+    const paused = statusCounts['paused'] ?? 0
+    const bounced = statusCounts['bounced'] ?? 0
+    const unsubscribed = statusCounts['unsubscribed'] ?? 0
+
+    // Message-level metrics (only messages that belong to this sequence's enrollments)
+    const [msgStats] = await db
+      .select({
+        emailsSent: sql<number>`count(*) filter (where ${messages.status} in ('sent', 'delivered'))`,
+        opened: sql<number>`count(*) filter (where ${messages.openedAt} is not null)`,
+        clicked: sql<number>`count(*) filter (where ${messages.clickedAt} is not null)`,
+      })
+      .from(messages)
+      .innerJoin(sequenceEnrollments, eq(messages.enrollmentId, sequenceEnrollments.id))
+      .where(eq(sequenceEnrollments.sequenceId, id))
+
+    const emailsSent = Number(msgStats?.emailsSent ?? 0)
+    const opened = Number(msgStats?.opened ?? 0)
+    const clicked = Number(msgStats?.clicked ?? 0)
+
+    // Reply count
+    const [replyStats] = await db
+      .select({ replied: count() })
+      .from(replies)
+      .innerJoin(sequenceEnrollments, eq(replies.enrollmentId, sequenceEnrollments.id))
+      .where(eq(sequenceEnrollments.sequenceId, id))
+
+    const replied = Number(replyStats?.replied ?? 0)
+
+    // Meetings booked
+    const [meetingStats] = await db
+      .select({ meetingsBooked: count() })
+      .from(meetings)
+      .innerJoin(sequenceEnrollments, eq(meetings.enrollmentId, sequenceEnrollments.id))
+      .where(eq(sequenceEnrollments.sequenceId, id))
+
+    const meetingsBooked = Number(meetingStats?.meetingsBooked ?? 0)
+
+    // Per-step breakdown
+    const stepRows = await db
+      .select({
+        stepPosition: sequenceSteps.position,
+        variantLabel: sequenceSteps.variantLabel,
+        sent: sql<number>`count(*) filter (where ${messages.status} in ('sent', 'delivered'))`,
+        opened: sql<number>`count(*) filter (where ${messages.openedAt} is not null)`,
+      })
+      .from(sequenceSteps)
+      .leftJoin(messages, eq(messages.sequenceStepId, sequenceSteps.id))
+      .where(eq(sequenceSteps.sequenceId, id))
+      .groupBy(sequenceSteps.position, sequenceSteps.variantLabel)
+      .orderBy(sequenceSteps.position)
+
+    // Per-step reply counts (replies link through messages)
+    const stepReplyRows = await db
+      .select({
+        stepPosition: sequenceSteps.position,
+        variantLabel: sequenceSteps.variantLabel,
+        replied: count(),
+      })
+      .from(replies)
+      .innerJoin(messages, eq(replies.messageId, messages.id))
+      .innerJoin(sequenceSteps, eq(messages.sequenceStepId, sequenceSteps.id))
+      .where(eq(sequenceSteps.sequenceId, id))
+      .groupBy(sequenceSteps.position, sequenceSteps.variantLabel)
+
+    const replyMap: Record<string, number> = {}
+    for (const r of stepReplyRows) {
+      const key = `${r.stepPosition}-${r.variantLabel ?? ''}`
+      replyMap[key] = Number(r.replied)
+    }
+
+    const perStep = stepRows.map((r) => {
+      const sent = Number(r.sent)
+      const stepOpened = Number(r.opened)
+      const key = `${r.stepPosition}-${r.variantLabel ?? ''}`
+      const stepReplied = replyMap[key] ?? 0
+      return {
+        stepPosition: r.stepPosition,
+        variantLabel: r.variantLabel,
+        sent,
+        opened: stepOpened,
+        replied: stepReplied,
+        openRate: sent > 0 ? Math.round((stepOpened / sent) * 10000) / 100 : 0,
+        replyRate: sent > 0 ? Math.round((stepReplied / sent) * 10000) / 100 : 0,
+      }
+    })
+
+    return {
+      data: {
+        totalEnrolled,
+        active,
+        completed,
+        paused,
+        bounced,
+        unsubscribed,
+        emailsSent,
+        opened,
+        clicked,
+        replied,
+        openRate: emailsSent > 0 ? Math.round((opened / emailsSent) * 10000) / 100 : 0,
+        clickRate: emailsSent > 0 ? Math.round((clicked / emailsSent) * 10000) / 100 : 0,
+        replyRate: emailsSent > 0 ? Math.round((replied / emailsSent) * 10000) / 100 : 0,
+        meetingsBooked,
+        perStep,
+      },
+    }
+  })
+
+  // GET /sequences/:id/ab-results — compare A/B variants
+  app.get('/:id/ab-results', auth, async (req, reply) => {
+    const { id } = req.params as { id: string }
+
+    const seq = await db.query.sequences.findFirst({
+      where: and(eq(sequences.id, id), eq(sequences.workspaceId, req.user.workspaceId)),
+    })
+    if (!seq) return reply.code(404).send({ error: 'Not found' })
+
+    // Get steps that have a variantGroup
+    const variantSteps = await db.query.sequenceSteps.findMany({
+      where: and(
+        eq(sequenceSteps.sequenceId, id),
+        sql`${sequenceSteps.variantGroup} IS NOT NULL`,
+      ),
+      orderBy: (s, { asc }) => [asc(s.position)],
+    })
+
+    if (variantSteps.length === 0) {
+      return { data: { groups: [] } }
+    }
+
+    // Group by variantGroup
+    const groupMap = new Map<string, typeof variantSteps>()
+    for (const step of variantSteps) {
+      const group = step.variantGroup!
+      if (!groupMap.has(group)) groupMap.set(group, [])
+      groupMap.get(group)!.push(step)
+    }
+
+    const groups = []
+    for (const [groupName, steps] of groupMap) {
+      const variants = []
+      for (const step of steps) {
+        // Sent / opened per variant step
+        const [msgRow] = await db
+          .select({
+            sent: sql<number>`count(*) filter (where ${messages.status} in ('sent', 'delivered'))`,
+            opened: sql<number>`count(*) filter (where ${messages.openedAt} is not null)`,
+          })
+          .from(messages)
+          .where(eq(messages.sequenceStepId, step.id))
+
+        const [replyRow] = await db
+          .select({ replied: count() })
+          .from(replies)
+          .innerJoin(messages, eq(replies.messageId, messages.id))
+          .where(eq(messages.sequenceStepId, step.id))
+
+        const sent = Number(msgRow?.sent ?? 0)
+        const opened = Number(msgRow?.opened ?? 0)
+        const replied = Number(replyRow?.replied ?? 0)
+
+        variants.push({
+          variantLabel: step.variantLabel ?? step.id,
+          stepPosition: step.position,
+          sent,
+          opened,
+          replied,
+          openRate: sent > 0 ? Math.round((opened / sent) * 10000) / 100 : 0,
+          replyRate: sent > 0 ? Math.round((replied / sent) * 10000) / 100 : 0,
+        })
+      }
+      groups.push({ variantGroup: groupName, variants })
+    }
+
+    return { data: { groups } }
   })
 
   // DELETE /sequences/:id

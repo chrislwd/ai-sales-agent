@@ -1,9 +1,19 @@
 'use client'
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import useSWR from 'swr'
 import { fetcher, apiFetch } from '@/lib/api'
 import type { Contact, Sequence } from '@ai-sales/types'
 import clsx from 'clsx'
+
+const SAMPLE_CSV = `first_name,last_name,email,title,seniority,job_function,country,phone,linkedin_url,company_name
+Jane,Doe,jane.doe@example.com,VP of Sales,vp,sales,United States,+1-555-0100,https://linkedin.com/in/janedoe,Acme Inc
+John,Smith,john.smith@example.com,Engineering Manager,manager,engineering,United Kingdom,+44-20-7946-0958,https://linkedin.com/in/johnsmith,Globex Corp`
+
+interface ImportResult {
+  imported: number
+  skipped: number
+  accountsCreated: number
+}
 
 const LIFECYCLE_COLORS: Record<string, string> = {
   new: 'bg-gray-100 text-gray-600',
@@ -116,11 +126,122 @@ function EnrollModal({ contactIds, onClose, onDone }: EnrollModalProps) {
   )
 }
 
+function ImportCSVModal({ onClose, onDone }: { onClose: () => void; onDone: () => void }) {
+  const fileRef = useRef<HTMLInputElement>(null)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+  const [result, setResult] = useState<ImportResult | null>(null)
+
+  const downloadSample = () => {
+    const blob = new Blob([SAMPLE_CSV], { type: 'text/csv' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'contacts_sample.csv'
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  const handleUpload = async () => {
+    const file = fileRef.current?.files?.[0]
+    if (!file) return
+    setLoading(true)
+    setError('')
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+      const token = localStorage.getItem('access_token')
+      const API_URL = process.env['NEXT_PUBLIC_API_URL'] ?? 'http://localhost:3001/api/v1'
+      const res = await fetch(`${API_URL}/contacts/import`, {
+        method: 'POST',
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        body: formData,
+      })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: res.statusText }))
+        throw new Error(err.error ?? res.statusText)
+      }
+      const json = await res.json()
+      setResult(json.data)
+    } catch (e: any) {
+      setError(e.message ?? 'Import failed')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
+        <h2 className="text-lg font-bold text-gray-900 mb-1">Import contacts from CSV</h2>
+        <p className="text-sm text-gray-500 mb-5">
+          Upload a CSV file with contact data. Accounts will be matched or created automatically.
+        </p>
+
+        {result ? (
+          <div className="text-center py-4">
+            <p className="text-3xl font-bold text-green-600">{result.imported}</p>
+            <p className="text-gray-600 mt-1">contacts imported</p>
+            {result.skipped > 0 && (
+              <p className="text-sm text-gray-400 mt-1">{result.skipped} skipped (duplicate or invalid)</p>
+            )}
+            {result.accountsCreated > 0 && (
+              <p className="text-sm text-gray-400 mt-1">{result.accountsCreated} new accounts created</p>
+            )}
+            <button onClick={onDone} className="mt-6 px-6 py-2 bg-brand-600 text-white rounded-lg hover:bg-brand-700">
+              Done
+            </button>
+          </div>
+        ) : (
+          <>
+            <div className="mb-4">
+              <input
+                ref={fileRef}
+                type="file"
+                accept=".csv,text/csv"
+                className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-brand-50 file:text-brand-700 hover:file:bg-brand-100"
+              />
+            </div>
+
+            <button
+              onClick={downloadSample}
+              className="text-sm text-brand-600 hover:text-brand-700 underline mb-4 inline-block"
+            >
+              Download sample CSV template
+            </button>
+
+            {error && (
+              <p className="text-sm text-red-600 mb-3">{error}</p>
+            )}
+
+            <div className="flex gap-3">
+              <button
+                onClick={onClose}
+                className="flex-1 px-4 py-2 border border-gray-200 text-sm rounded-lg hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleUpload}
+                disabled={loading}
+                className="flex-1 px-4 py-2 bg-brand-600 text-white text-sm rounded-lg hover:bg-brand-700 disabled:opacity-50 font-medium"
+              >
+                {loading ? 'Importing...' : 'Upload & Import'}
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  )
+}
+
 export default function ContactsPage() {
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(1)
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [showEnroll, setShowEnroll] = useState(false)
+  const [showImport, setShowImport] = useState(false)
   const [statusFilter, setStatusFilter] = useState('')
 
   const { data, isLoading, mutate } = useSWR<{ data: Contact[]; total: number }>(
@@ -161,6 +282,12 @@ export default function ContactsPage() {
               Enroll {selected.size} in sequence
             </button>
           )}
+          <button
+            onClick={() => setShowImport(true)}
+            className="px-4 py-2 border border-gray-200 text-sm rounded-lg hover:bg-gray-50"
+          >
+            Import CSV
+          </button>
           <button className="px-4 py-2 border border-gray-200 text-sm rounded-lg hover:bg-gray-50">
             + Add contact
           </button>
@@ -270,6 +397,13 @@ export default function ContactsPage() {
           contactIds={Array.from(selected)}
           onClose={() => setShowEnroll(false)}
           onDone={() => { setShowEnroll(false); setSelected(new Set()); mutate() }}
+        />
+      )}
+
+      {showImport && (
+        <ImportCSVModal
+          onClose={() => setShowImport(false)}
+          onDone={() => { setShowImport(false); mutate() }}
         />
       )}
     </div>

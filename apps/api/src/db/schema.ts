@@ -49,6 +49,10 @@ export const meetingStatusEnum = pgEnum('meeting_status', [
   'proposed', 'confirmed', 'completed', 'cancelled', 'no_show',
 ])
 
+export const templateCategoryEnum = pgEnum('template_category', [
+  'cold_outbound', 'follow_up', 'breakup', 're_engagement', 'post_demo', 'referral', 'custom',
+])
+
 export const stepTypeEnum = pgEnum('step_type', ['email', 'wait', 'condition'])
 
 export const actorTypeEnum = pgEnum('actor_type', ['ai', 'user', 'system'])
@@ -243,9 +247,12 @@ export const sequenceSteps = pgTable('sequence_steps', {
   templateSubject: text('template_subject'),
   templateBody: text('template_body'),
   approvalMode: approvalModeEnum('approval_mode').notNull().default('auto'),
+  // A/B testing: steps with the same variantGroup compete; variantLabel distinguishes them
+  variantGroup: text('variant_group'),
+  variantLabel: text('variant_label'), // e.g. 'A' or 'B'
   createdAt: timestamp('created_at').notNull().defaultNow(),
 }, (t) => ({
-  positionUnique: uniqueIndex('sequence_steps_position_idx').on(t.sequenceId, t.position),
+  positionIdx: index('sequence_steps_position_idx').on(t.sequenceId, t.position),
 }))
 
 // ─── Enrollments ──────────────────────────────────────────────────────────────
@@ -368,6 +375,25 @@ export const activityLogs = pgTable('activity_logs', {
   createdIdx: index('activity_logs_created_idx').on(t.createdAt),
 }))
 
+// ─── Email Templates ─────────────────────────────────────────────────────
+
+export const emailTemplates = pgTable('email_templates', {
+  id: uuid('id').primaryKey().default(sql`gen_random_uuid()`),
+  workspaceId: uuid('workspace_id').notNull().references(() => workspaces.id, { onDelete: 'cascade' }),
+  name: text('name').notNull(),
+  category: templateCategoryEnum('category').notNull().default('custom'),
+  subject: text('subject').notNull(),
+  body: text('body').notNull(),
+  variables: text('variables').array().notNull().default(sql`'{}'`),
+  isShared: boolean('is_shared').notNull().default(true),
+  createdBy: uuid('created_by').notNull().references(() => users.id),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+}, (t) => ({
+  workspaceIdx: index('email_templates_workspace_idx').on(t.workspaceId),
+  categoryIdx: index('email_templates_category_idx').on(t.workspaceId, t.category),
+}))
+
 // ─── Refresh Tokens ───────────────────────────────────────────────────────────
 
 export const refreshTokens = pgTable('refresh_tokens', {
@@ -395,6 +421,7 @@ export const workspacesRelations = relations(workspaces, ({ many }) => ({
   meetings: many(meetings),
   icpConfigs: many(icpConfigs),
   emailAccounts: many(emailAccounts),
+  emailTemplates: many(emailTemplates),
   crmConnections: many(crmConnections),
   activityLogs: many(activityLogs),
 }))
@@ -482,6 +509,11 @@ export const crmConnectionsRelations = relations(crmConnections, ({ one }) => ({
 export const activityLogsRelations = relations(activityLogs, ({ one }) => ({
   workspace: one(workspaces, { fields: [activityLogs.workspaceId], references: [workspaces.id] }),
   actor: one(users, { fields: [activityLogs.actorId], references: [users.id] }),
+}))
+
+export const emailTemplatesRelations = relations(emailTemplates, ({ one }) => ({
+  workspace: one(workspaces, { fields: [emailTemplates.workspaceId], references: [workspaces.id] }),
+  createdByUser: one(users, { fields: [emailTemplates.createdBy], references: [users.id] }),
 }))
 
 export const refreshTokensRelations = relations(refreshTokens, ({ one }) => ({

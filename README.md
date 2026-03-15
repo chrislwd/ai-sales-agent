@@ -204,6 +204,7 @@ ai-sales-agent/
 │   │       │   ├── messages/          # Approval queue, inbound reply handler
 │   │       │   ├── meetings/          # Meeting scheduling, pre-call brief
 │   │       │   ├── crm/               # HubSpot OAuth + sync service
+│   │       │   ├── templates/          # Email template library + AI generation
 │   │       │   ├── webhooks/          # Email open/click/bounce/reply webhooks
 │   │       │   ├── email-accounts/    # Google OAuth + Gmail API sending
 │   │       │   └── analytics/         # Dashboard metrics, audit log
@@ -221,7 +222,8 @@ ai-sales-agent/
 │           │       ├── page.tsx       # Metrics dashboard
 │           │       ├── accounts/      # Account list + CSV import + detail view
 │           │       ├── contacts/      # Contact list + enroll + detail view
-│           │       ├── sequences/     # Sequence list + step editor
+│           │       ├── sequences/     # Sequence list + editor + analytics + A/B
+│           │       ├── templates/    # Email template library + AI generate
 │           │       ├── inbox/         # Approval queue + reply viewer
 │           │       ├── meetings/      # Meeting tracker
 │           │       ├── analytics/     # Audit log viewer
@@ -379,6 +381,18 @@ All endpoints are prefixed with `/api/v1`. Authenticate via `Authorization: Bear
 | `PATCH` | `/contacts/:id/lifecycle` | Update lifecycle status |
 | `POST` | `/contacts/:id/unsubscribe` | Mark unsubscribed |
 | `DELETE` | `/contacts/:id` | Delete _(manager+)_ |
+| `POST` | `/contacts/import` | Bulk import from CSV (auto-creates accounts) |
+
+### Templates
+
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/templates` | List templates (`?category=`) |
+| `POST` | `/templates` | Create template |
+| `GET` | `/templates/:id` | Get template |
+| `PATCH` | `/templates/:id` | Update template |
+| `DELETE` | `/templates/:id` | Delete _(manager+)_ |
+| `POST` | `/templates/generate` | AI-generate template from parameters |
 
 ### Sequences
 
@@ -394,6 +408,8 @@ All endpoints are prefixed with `/api/v1`. Authenticate via `Authorization: Bear
 | `GET` | `/sequences/:id/enrollments` | List enrollments + status |
 | `POST` | `/sequences/enrollments/:id/pause` | Pause enrollment |
 | `POST` | `/sequences/enrollments/:id/resume` | Resume enrollment |
+| `GET` | `/sequences/:id/analytics` | Funnel metrics + per-step breakdown |
+| `GET` | `/sequences/:id/ab-results` | A/B test variant comparison |
 
 ### Messages & Replies
 
@@ -523,10 +539,11 @@ APP_PUBLIC_URL=https://app.yourdomain.com
 - [x] Account & contact detail pages with ICP score visualization
 - [x] Settings page (workspace, CRM, team, ICP config)
 - [x] GitHub Actions CI pipeline
+- [x] Email template library with AI generation (7 categories)
+- [x] Contact-level CSV import with auto account creation
+- [x] Per-sequence funnel analytics with step-level breakdown
+- [x] A/B testing for email variants (random split, side-by-side comparison)
 - [ ] Salesforce CRM integration
-- [ ] Built-in sequence template library (cold outbound, re-engagement, post-demo follow-up)
-- [ ] Team-level analytics and per-sequence A/B comparison
-- [ ] Contact-level CSV import (currently account-level only)
 
 **Phase 3**
 - [ ] LinkedIn outreach automation
@@ -746,6 +763,7 @@ ai-sales-agent/
 │   │       │   ├── messages/          # 审批队列、入站回复处理
 │   │       │   ├── meetings/          # 会议调度、AI 会前简报
 │   │       │   ├── crm/               # HubSpot OAuth + 同步服务
+│   │       │   ├── templates/          # 邮件模板库 + AI 生成
 │   │       │   ├── webhooks/          # 邮件打开/点击/退信/回复 Webhook
 │   │       │   ├── email-accounts/    # Google OAuth + Gmail API 发信
 │   │       │   └── analytics/         # 指标看板、审计日志
@@ -881,8 +899,9 @@ pnpm test
 | 工作空间 | `/workspace` | 工作空间设置、成员管理、邀请 |
 | ICP 配置 | `/icp` | 理想客户画像 CRUD |
 | 账号 | `/accounts` | 账号管理、CSV 导入、ICP 重新评分 |
-| 联系人 | `/contacts` | 联系人管理、生命周期更新、退订 |
-| Sequence | `/sequences` | 序列构建、联系人加入、暂停/恢复 |
+| 联系人 | `/contacts` | 联系人管理、CSV 导入、生命周期更新、退订 |
+| 模板 | `/templates` | 邮件模板库、AI 生成模板 |
+| Sequence | `/sequences` | 序列构建、联系人加入、漏斗分析、A/B 测试 |
 | 消息 | `/messages` | 审批队列、来信处理、人工覆盖 |
 | 会议 | `/meetings` | 会议提议/确认、会前简报获取 |
 | CRM | `/crm` | HubSpot 连接管理、手动触发同步 |
@@ -960,10 +979,11 @@ APP_PUBLIC_URL=https://app.yourdomain.com
 - [x] 账户和联系人详情页，含 ICP 评分可视化
 - [x] Settings 页面（工作空间、CRM、团队、ICP 配置）
 - [x] GitHub Actions CI 流水线
+- [x] 邮件模板库 + AI 生成（7 个分类）
+- [x] 联系人 CSV 批量导入（自动关联/创建账户）
+- [x] Sequence 漏斗分析（按步骤分解指标）
+- [x] 邮件 A/B 测试（随机分流 + 对比分析）
 - [ ] Salesforce CRM 集成
-- [ ] 内置 Sequence 模板库（冷开发、重激活、会后跟进）
-- [ ] 团队级分析报表和 Sequence A/B 对比
-- [ ] 联系人级 CSV 导入（当前仅支持账号级）
 
 **Phase 3**
 - [ ] LinkedIn 自动化外呼渠道

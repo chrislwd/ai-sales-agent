@@ -15,6 +15,7 @@ import { meetingsRoutes } from './modules/meetings/meetings.routes.js'
 import { analyticsRoutes } from './modules/analytics/analytics.routes.js'
 import { crmRoutes } from './modules/crm/crm.routes.js'
 import { emailAccountsRoutes } from './modules/email-accounts/email-accounts.routes.js'
+import { templatesRoutes } from './modules/templates/templates.routes.js'
 import { webhookRoutes } from './modules/webhooks/webhook.routes.js'
 import { startWorkers } from './queues/worker.js'
 import { registerBullBoard } from './queues/board.js'
@@ -67,6 +68,7 @@ await app.register(meetingsRoutes, { prefix: `${V1}/meetings` })
 await app.register(analyticsRoutes, { prefix: `${V1}/analytics` })
 await app.register(crmRoutes, { prefix: `${V1}/crm` })
 await app.register(emailAccountsRoutes, { prefix: `${V1}/email-accounts` })
+await app.register(templatesRoutes, { prefix: `${V1}/templates` })
 await app.register(webhookRoutes, { prefix: `${V1}/webhooks` })
 
 // ─── Health ───────────────────────────────────────────────────────────────────

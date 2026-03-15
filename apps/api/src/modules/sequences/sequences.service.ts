@@ -70,9 +70,19 @@ export async function executeStep(enrollmentId: string): Promise<void> {
 
   if (!enrollment || enrollment.status !== 'active') return
 
-  const step = enrollment.sequence.steps.find(
+  // Find all steps at the current position (may include A/B variants)
+  const stepsAtPosition = enrollment.sequence.steps.filter(
     (s) => s.position === enrollment.currentStepPosition,
   )
+
+  // If multiple variants exist at the same position, randomly pick one (50/50 split)
+  let step: (typeof stepsAtPosition)[number] | undefined
+  if (stepsAtPosition.length > 1) {
+    const idx = Math.floor(Math.random() * stepsAtPosition.length)
+    step = stepsAtPosition[idx]
+  } else {
+    step = stepsAtPosition[0]
+  }
 
   if (!step) {
     // sequence complete
