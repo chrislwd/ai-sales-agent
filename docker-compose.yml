@@ -1,42 +1,12 @@
+# Local development environment — mounts source code for hot-reload.
+# Usage: docker compose up
+# To run DB migrations: docker compose exec api pnpm db:migrate
+
 services:
-  api:
-    build:
-      context: .
-      dockerfile: apps/api/Dockerfile
-    ports:
-      - '3001:3001'
-    environment:
-      NODE_ENV: development
-      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/ai_sales_agent
-      REDIS_URL: redis://redis:6379
-      JWT_SECRET: ${JWT_SECRET:-dev-secret-change-me}
-      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-dev-refresh-secret-change-me}
-      CORS_ORIGIN: http://localhost:3000
-      API_PUBLIC_URL: http://localhost:3001
-      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
-      EMAIL_ENABLED: 'false'
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    restart: unless-stopped
-
-  web:
-    build:
-      context: .
-      dockerfile: apps/web/Dockerfile
-    ports:
-      - '3000:3000'
-    environment:
-      NEXT_PUBLIC_API_URL: http://localhost:3001/api/v1
-      NEXT_PUBLIC_APP_URL: http://localhost:3000
-    depends_on:
-      - api
-    restart: unless-stopped
-
   postgres:
     image: postgres:16-alpine
+    ports:
+      - '5432:5432'
     environment:
       POSTGRES_DB: ai_sales_agent
       POSTGRES_USER: postgres
@@ -52,6 +22,8 @@ services:
 
   redis:
     image: redis:7-alpine
+    ports:
+      - '6379:6379'
     volumes:
       - redis_data:/data
     healthcheck:
@@ -61,6 +33,88 @@ services:
       retries: 5
     restart: unless-stopped
 
+  api:
+    image: node:20-alpine
+    working_dir: /app
+    command: sh -c "corepack enable pnpm && pnpm install --frozen-lockfile && pnpm --filter @ai-sales/types build && pnpm --filter @ai-sales/api dev"
+    ports:
+      - '3001:3001'
+    environment:
+      NODE_ENV: development
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/ai_sales_agent
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: ${JWT_SECRET:-dev-secret-change-me}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-dev-refresh-secret-change-me}
+      CORS_ORIGIN: http://localhost:3000
+      API_PUBLIC_URL: http://localhost:3001
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      EMAIL_ENABLED: 'false'
+      HUBSPOT_CLIENT_ID: ${HUBSPOT_CLIENT_ID:-}
+      HUBSPOT_CLIENT_SECRET: ${HUBSPOT_CLIENT_SECRET:-}
+    volumes:
+      - ./apps/api/src:/app/apps/api/src
+      - ./apps/api/package.json:/app/apps/api/package.json
+      - ./apps/api/tsconfig.json:/app/apps/api/tsconfig.json:ro
+      - ./apps/api/drizzle.config.ts:/app/apps/api/drizzle.config.ts:ro
+      - ./packages/types/src:/app/packages/types/src
+      - ./packages/types/package.json:/app/packages/types/package.json
+      - ./packages/types/tsconfig.json:/app/packages/types/tsconfig.json:ro
+      - ./package.json:/app/package.json
+      - ./pnpm-workspace.yaml:/app/pnpm-workspace.yaml
+      - ./pnpm-lock.yaml:/app/pnpm-lock.yaml
+      - ./tsconfig.base.json:/app/tsconfig.base.json:ro
+      - ./turbo.json:/app/turbo.json:ro
+      # Persist node_modules inside the container to avoid platform mismatches
+      - api_node_modules:/app/node_modules
+      - api_app_node_modules:/app/apps/api/node_modules
+      - types_node_modules:/app/packages/types/node_modules
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  web:
+    image: node:20-alpine
+    working_dir: /app
+    command: sh -c "corepack enable pnpm && pnpm install --frozen-lockfile && pnpm --filter @ai-sales/types build && pnpm --filter @ai-sales/web dev"
+    ports:
+      - '3000:3000'
+    environment:
+      NODE_ENV: development
+      NEXT_PUBLIC_API_URL: http://localhost:3001/api/v1
+      NEXT_PUBLIC_APP_URL: http://localhost:3000
+      NEXT_TELEMETRY_DISABLED: 1
+    volumes:
+      - ./apps/web/src:/app/apps/web/src
+      - ./apps/web/public:/app/apps/web/public
+      - ./apps/web/package.json:/app/apps/web/package.json
+      - ./apps/web/tsconfig.json:/app/apps/web/tsconfig.json:ro
+      - ./apps/web/next.config.mjs:/app/apps/web/next.config.mjs:ro
+      - ./apps/web/tailwind.config.ts:/app/apps/web/tailwind.config.ts:ro
+      - ./packages/types/src:/app/packages/types/src
+      - ./packages/types/package.json:/app/packages/types/package.json
+      - ./packages/types/tsconfig.json:/app/packages/types/tsconfig.json:ro
+      - ./package.json:/app/package.json
+      - ./pnpm-workspace.yaml:/app/pnpm-workspace.yaml
+      - ./pnpm-lock.yaml:/app/pnpm-lock.yaml
+      - ./tsconfig.base.json:/app/tsconfig.base.json:ro
+      - ./turbo.json:/app/turbo.json:ro
+      # Persist node_modules inside the container
+      - web_node_modules:/app/node_modules
+      - web_app_node_modules:/app/apps/web/node_modules
+      - web_types_node_modules:/app/packages/types/node_modules
+    depends_on:
+      - api
+    restart: unless-stopped
+
 volumes:
   postgres_data:
   redis_data:
+  api_node_modules:
+  api_app_node_modules:
+  types_node_modules:
+  web_node_modules:
+  web_app_node_modules:
+  web_types_node_modules:

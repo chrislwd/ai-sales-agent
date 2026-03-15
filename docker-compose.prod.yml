@@ -1,44 +1,8 @@
+# Production environment — builds optimized images via multi-stage Dockerfiles.
+# Usage: docker compose -f docker-compose.prod.yml up --build
+# Requires a .env file (or explicit env vars) for secrets.
+
 services:
-  api:
-    build:
-      context: .
-      dockerfile: apps/api/Dockerfile
-    ports:
-      - '3001:3001'
-    environment:
-      NODE_ENV: production
-      DATABASE_URL: ${DATABASE_URL}
-      REDIS_URL: redis://redis:6379
-      JWT_SECRET: ${JWT_SECRET}
-      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
-      API_PUBLIC_URL: ${API_PUBLIC_URL}
-      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
-      EMAIL_ENABLED: 'true'
-      RESEND_API_KEY: ${RESEND_API_KEY}
-      EMAIL_FROM: ${EMAIL_FROM}
-      CORS_ORIGIN: ${APP_PUBLIC_URL}
-      HUBSPOT_CLIENT_ID: ${HUBSPOT_CLIENT_ID:-}
-      HUBSPOT_CLIENT_SECRET: ${HUBSPOT_CLIENT_SECRET:-}
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    restart: unless-stopped
-
-  web:
-    build:
-      context: .
-      dockerfile: apps/web/Dockerfile
-    ports:
-      - '3000:3000'
-    environment:
-      NEXT_PUBLIC_API_URL: ${API_PUBLIC_URL}/api/v1
-      NEXT_PUBLIC_APP_URL: ${APP_PUBLIC_URL}
-    depends_on:
-      - api
-    restart: unless-stopped
-
   postgres:
     image: postgres:16-alpine
     environment:
@@ -49,21 +13,82 @@ services:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
       test: ['CMD-SHELL', 'pg_isready -U postgres']
-      interval: 5s
+      interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 10s
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 512M
 
   redis:
     image: redis:7-alpine
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
     volumes:
       - redis_data:/data
     healthcheck:
       test: ['CMD', 'redis-cli', 'ping']
-      interval: 5s
+      interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 5s
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    ports:
+      - '3001:3001'
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD}@postgres:5432/ai_sales_agent
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
+      API_PUBLIC_URL: ${API_PUBLIC_URL}
+      CORS_ORIGIN: ${APP_PUBLIC_URL}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+      EMAIL_ENABLED: 'true'
+      RESEND_API_KEY: ${RESEND_API_KEY}
+      EMAIL_FROM: ${EMAIL_FROM}
+      HUBSPOT_CLIENT_ID: ${HUBSPOT_CLIENT_ID:-}
+      HUBSPOT_CLIENT_SECRET: ${HUBSPOT_CLIENT_SECRET:-}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    ports:
+      - '3000:3000'
+    environment:
+      NODE_ENV: production
+      NEXT_PUBLIC_API_URL: ${API_PUBLIC_URL}/api/v1
+      NEXT_PUBLIC_APP_URL: ${APP_PUBLIC_URL}
+      NEXT_TELEMETRY_DISABLED: 1
+    depends_on:
+      - api
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 512M
 
 volumes:
   postgres_data:
