@@ -270,17 +270,25 @@ docker compose up postgres redis -d
 ### 4. Run database migrations
 
 ```bash
-pnpm db:generate   # generate SQL from Drizzle schema
-pnpm db:migrate    # apply to database
+pnpm db:migrate    # apply migrations to database
 ```
 
-### 5. Start dev servers
+### 5. Seed demo data (optional)
+
+```bash
+pnpm db:seed       # creates workspace, user, accounts, contacts, sequence
+                    # login: demo@example.com / demo1234
+```
+
+### 6. Start dev servers
 
 ```bash
 pnpm dev           # api on :3001, web on :3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) and register your first workspace.
+Open [http://localhost:3000](http://localhost:3000) — if you ran the seed, log in with `demo@example.com` / `demo1234`.
+
+**Bull Board**: Queue dashboard available at [http://localhost:3001/admin/queues](http://localhost:3001/admin/queues) in development mode.
 
 ### Run tests
 
@@ -804,17 +812,25 @@ docker compose up postgres redis -d
 ### 4. 执行数据库迁移
 
 ```bash
-pnpm db:generate   # 从 Drizzle schema 生成 SQL
 pnpm db:migrate    # 执行迁移
 ```
 
-### 5. 启动开发服务器
+### 5. 填充示范数据（可选）
+
+```bash
+pnpm db:seed       # 创建工作空间、用户、账户、联系人、序列
+                    # 登录账号: demo@example.com / demo1234
+```
+
+### 6. 启动开发服务器
 
 ```bash
 pnpm dev   # api 运行于 :3001，web 运行于 :3000
 ```
 
-打开 [http://localhost:3000](http://localhost:3000) 注册第一个工作空间，即可开始使用。
+打开 [http://localhost:3000](http://localhost:3000) — 如果执行了 seed，可用 `demo@example.com` / `demo1234` 登录。
+
+**Bull Board**: 队列可视化面板位于 [http://localhost:3001/admin/queues](http://localhost:3001/admin/queues)（仅开发模式可用）。
 
 ### 运行测试
 

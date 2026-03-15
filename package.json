@@ -9,6 +9,7 @@
     "test": "turbo run test",
     "db:generate": "pnpm --filter @ai-sales/api db:generate",
     "db:migrate": "pnpm --filter @ai-sales/api db:migrate",
+    "db:seed": "pnpm --filter @ai-sales/api db:seed",
     "db:studio": "pnpm --filter @ai-sales/api db:studio"
   },
   "devDependencies": {

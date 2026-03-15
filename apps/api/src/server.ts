@@ -17,6 +17,7 @@ import { crmRoutes } from './modules/crm/crm.routes.js'
 import { emailAccountsRoutes } from './modules/email-accounts/email-accounts.routes.js'
 import { webhookRoutes } from './modules/webhooks/webhook.routes.js'
 import { startWorkers } from './queues/worker.js'
+import { registerBullBoard } from './queues/board.js'
 
 const app = Fastify({ logger: { level: env.NODE_ENV === 'production' ? 'warn' : 'info' } })
 
@@ -29,6 +30,12 @@ await app.register(jwt, {
 })
 await app.register(rateLimit, { max: 200, timeWindow: '1 minute' })
 await app.register(multipart, { limits: { fileSize: 5 * 1024 * 1024 } })
+
+// ─── Bull Board (queue dashboard) ────────────────────────────────────────────
+
+if (env.NODE_ENV !== 'production' || process.env.ENABLE_BULL_BOARD === 'true') {
+  await registerBullBoard(app)
+}
 
 // ─── Auth decorator ───────────────────────────────────────────────────────────
 
